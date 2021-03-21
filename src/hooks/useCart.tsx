@@ -33,7 +33,6 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
   });
 
   const [stocks, setStocks] = useState<Stock[]>([])
-  const [products, setProducts] = useState<Product[]>([])
 
 
   useEffect(() => {
@@ -42,18 +41,26 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
       setCart(JSON.parse(newCart))
     }
     api.get<Stock[]>('/stock').then(response => setStocks(response.data)).catch(error => console.log(error))
-    api.get<Product[]>('/products').then(response => setProducts(response.data)).catch(error => console.log(error))
 
   }, [])
 
   const addProduct = async (productId: number) => {
     try {
-      const { data: addedProduct } = (await api.get<Product>(`/products/${productId}`))
-      const addedProductStock = stocks.find(product => product.id === productId)
-      const addedProductIsValid = stocks.findIndex(product => product.id === productId) !== -1
-      if (addedProductIsValid) {
-        if (addedProduct && addedProductStock) {
-          if (addedProduct.amount < addedProductStock.amount) {
+      const { data: addedProductStock } = await api.get<Stock>(`/stock/${productId}`)
+      const { data: addedProduct } = await api.get<Product>(`/products/${productId}`)
+      const alreadyInCartProduct = cart.find(product => product.id === productId)
+      const isValidProduct = addedProduct !== null
+
+      console.log(addedProductStock)
+      console.log(alreadyInCartProduct)
+
+      if (isValidProduct) {
+        if (!alreadyInCartProduct) {
+          const newCart = [...cart, { ...addedProduct, amount: 1 }]
+          setCart(newCart)
+          localStorage.setItem('@RocketShoes:cart', JSON.stringify(newCart))
+        } else {
+          if (alreadyInCartProduct.amount < addedProductStock.amount) {
             const newCart = cart.map(product => {
               if (product.id === productId) {
                 return { ...product, amount: (product.amount + 1) }
@@ -65,13 +72,6 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
             localStorage.setItem('@RocketShoes:cart', JSON.stringify(newCart))
           } else {
             toast.error('Quantidade solicitada fora de estoque');
-          }
-        } else {
-          const newProduct = products.find(product => product.id === productId)
-          if (newProduct) {
-            const newCart = [...cart, { ...newProduct, amount: 1 }]
-            setCart(newCart)
-            localStorage.setItem('@RocketShoes:cart', JSON.stringify(newCart))
           }
         }
       } else {
