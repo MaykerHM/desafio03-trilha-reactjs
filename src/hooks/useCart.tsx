@@ -32,23 +32,23 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
     return [];
   });
 
+  const [stocks, setStocks] = useState<Stock[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+
 
   useEffect(() => {
     const newCart = localStorage.getItem('@RocketShoes:cart')
     if (newCart) {
       setCart(JSON.parse(newCart))
     }
+    api.get<Stock[]>('/stock').then(response => setStocks(response.data)).catch(error => console.log(error))
+    api.get<Product[]>('/products').then(response => setProducts(response.data)).catch(error => console.log(error))
 
   }, [])
 
-  // useEffect(() => {
-  //   localStorage.setItem('@RocketShoes:cart', JSON.stringify(cart))
-  // }, [cart])
-
   const addProduct = async (productId: number) => {
     try {
-      const stocks: Stock[] = await api.get('/stock').then(response => response.data).catch(error => console.log(error))
-      const addedProduct = cart.find(product => product.id === productId)
+      const { data: addedProduct } = (await api.get<Product>(`/products/${productId}`))
       const addedProductStock = stocks.find(product => product.id === productId)
       const addedProductIsValid = stocks.findIndex(product => product.id === productId) !== -1
       if (addedProductIsValid) {
@@ -67,15 +67,12 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
             toast.error('Quantidade solicitada fora de estoque');
           }
         } else {
-          await api.get('/products').then(response => {
-            const products: Product[] = response.data
-            const newProduct = products.find(product => product.id === productId)
-            if (newProduct) {
-              const newCart = [...cart, { ...newProduct, amount: 1 }]
-              setCart(newCart)
-              localStorage.setItem('@RocketShoes:cart', JSON.stringify(newCart))
-            }
-          }).catch(error => console.log(error))
+          const newProduct = products.find(product => product.id === productId)
+          if (newProduct) {
+            const newCart = [...cart, { ...newProduct, amount: 1 }]
+            setCart(newCart)
+            localStorage.setItem('@RocketShoes:cart', JSON.stringify(newCart))
+          }
         }
       } else {
         toast.error('Erro na adição do produto')
@@ -87,8 +84,14 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
 
   const removeProduct = (productId: number) => {
     try {
-      const newCart = cart.filter(product => product.id !== productId)
-      setCart(newCart)
+      const addedProductIsValid = stocks.findIndex(product => product.id === productId) !== -1
+      if (addedProductIsValid) {
+        const newCart = cart.filter(product => product.id !== productId)
+        setCart(newCart)
+        localStorage.setItem('@RocketShoes:cart', JSON.stringify(newCart))
+      } else {
+        toast.error('Erro na remoção do produto')
+      }
     } catch {
       toast.error('Erro na remoção do produto')
     }
@@ -99,8 +102,20 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
     amount,
   }: UpdateProductAmount) => {
     try {
-      const newCart = cart.map(product => product.id === productId ? { ...product, amount: amount } : product)
-      setCart(newCart)
+      const addedProductIsValid = stocks.findIndex(product => product.id === productId) !== -1
+      const addedProductStock = stocks.find(product => product.id === productId)
+      if (addedProductStock && addedProductIsValid) {
+        if (amount <= addedProductStock.amount && amount >= 1) {
+
+          const newCart = cart.map(product => product.id === productId ? { ...product, amount: amount } : product)
+          setCart(newCart)
+          localStorage.setItem('@RocketShoes:cart', JSON.stringify(newCart))
+        } else {
+          toast.error('Quantidade solicitada fora de estoque');
+        }
+      } else {
+        toast.error('Erro na alteração de quantidade do produto')
+      }
     } catch {
       toast.error('Erro na alteração de quantidade do produto')
     }
