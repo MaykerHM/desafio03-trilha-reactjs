@@ -53,7 +53,7 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
           setCart(newCart)
           localStorage.setItem('@RocketShoes:cart', JSON.stringify(newCart))
         } else {
-          if (addedProductStock.amount !== alreadyInCartProduct.amount) {
+          if (addedProductStock.amount > alreadyInCartProduct.amount) {
             const newCart = cart.map(product => {
               if (product.id === productId) {
                 return { ...product, amount: (product.amount + 1) }
