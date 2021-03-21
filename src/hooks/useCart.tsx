@@ -32,35 +32,28 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
     return [];
   });
 
-  const [stocks, setStocks] = useState<Stock[]>([])
-
-
   useEffect(() => {
     const newCart = localStorage.getItem('@RocketShoes:cart')
     if (newCart) {
       setCart(JSON.parse(newCart))
     }
-    api.get<Stock[]>('/stock').then(response => setStocks(response.data)).catch(error => console.log(error))
 
   }, [])
 
   const addProduct = async (productId: number) => {
     try {
-      const { data: addedProductStock } = await api.get<Stock>(`/stock/${productId}`)
       const { data: addedProduct } = await api.get<Product>(`/products/${productId}`)
-      const alreadyInCartProduct = cart.find(product => product.id === productId)
       const isValidProduct = addedProduct !== null
 
-      console.log(addedProductStock)
-      console.log(alreadyInCartProduct)
-
       if (isValidProduct) {
+        const alreadyInCartProduct = cart.find(product => product.id === productId)
+        const { data: addedProductStock } = await api.get<Stock>(`/stock/${productId}`)
         if (!alreadyInCartProduct) {
           const newCart = [...cart, { ...addedProduct, amount: 1 }]
           setCart(newCart)
           localStorage.setItem('@RocketShoes:cart', JSON.stringify(newCart))
         } else {
-          if (alreadyInCartProduct.amount < addedProductStock.amount) {
+          if (addedProductStock.amount !== alreadyInCartProduct.amount) {
             const newCart = cart.map(product => {
               if (product.id === productId) {
                 return { ...product, amount: (product.amount + 1) }
@@ -84,8 +77,8 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
 
   const removeProduct = (productId: number) => {
     try {
-      const addedProductIsValid = stocks.findIndex(product => product.id === productId) !== -1
-      if (addedProductIsValid) {
+      const removedProductIsValid = cart.findIndex(product => product.id === productId) !== -1
+      if (removedProductIsValid) {
         const newCart = cart.filter(product => product.id !== productId)
         setCart(newCart)
         localStorage.setItem('@RocketShoes:cart', JSON.stringify(newCart))
@@ -102,9 +95,9 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
     amount,
   }: UpdateProductAmount) => {
     try {
-      const addedProductIsValid = stocks.findIndex(product => product.id === productId) !== -1
-      const addedProductStock = stocks.find(product => product.id === productId)
-      if (addedProductStock && addedProductIsValid) {
+      const addedProductExists = cart.findIndex(product => product.id === productId) !== -1
+      const { data: addedProductStock } = await api.get<Stock>(`/stock/${productId}`)
+      if (addedProductExists) {
         if (amount <= addedProductStock.amount && amount >= 1) {
 
           const newCart = cart.map(product => product.id === productId ? { ...product, amount: amount } : product)
